@@ -67,6 +67,10 @@ VALUES
 
   (insert-graph! conn (graph/complete-independents 300 10))
 
+  (def rand-inds (graph/random-independents 300 10 0.3))
+  (def rand-inds2 (graph/random-independents 200 7 0.3))
+  (insert-graph! conn rand-inds2)
+
   )
 
 
@@ -85,4 +89,26 @@ WHERE
     g1.t = g2.f AND g2.t = g3.t AND g1.f = g3.f;")
 
 (time (jdbc/execute! conn [query]))
-(jdbc/execute! conn (sql/format triangle-query))
+(time (jdbc/execute! conn (sql/format triangle-query)))
+
+(defn- no-repetition [vars]
+  (loop [res [] vars vars]
+    (if (seq vars)
+      (recur (into res (map #(vector (first vars) %) (nthrest vars 2))) (rest vars))
+      res)))
+
+(defn k-path-query [k]
+  (let [vars (map #(symbol (str "v" %)) (range (inc k)))]
+    (-> {:from (mapv #(vector 'g (symbol (str "g" %))) (range k))
+         :where (into [:and]
+                      (concat
+                       (map #(vector := (symbol (str "g" % ".t")) (symbol (str "g" (inc %) ".f"))) (range (dec k)))
+                       (map (fn [[i j]] (vector :!= (symbol (str "g" i ".t")) (symbol (str "g" j ".t"))))
+                            (no-repetition (range k)))))
+         :select (-> (vec (map-indexed #(vector (symbol (str "g" %1 ".f")) %2) (butlast vars)))
+                     (conj (vector (symbol (str "g" (dec k) ".t")) (last vars))))})))
+
+(comment
+  (k-path-query 4))
+
+(time (jdbc/execute! conn (sql/format (k-path-query 4))))

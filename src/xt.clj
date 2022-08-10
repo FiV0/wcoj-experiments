@@ -41,28 +41,42 @@
   (xt/submit-tx mem-node (->> postgres/rand-g graph->docs wrap-in-puts))
   (xt/submit-tx mem-node (->> (graph/complete-independents 300 10) graph->docs wrap-in-puts))
   (xt/submit-tx mem-node (->> postgres/rand-inds graph->docs wrap-in-puts))
+  (xt/submit-tx mem-node (->> postgres/rand-inds2 graph->docs wrap-in-puts))
 
-
+  (.close mem-node)
   )
+
+
 
 (def triangleq '{:find [?a ?b ?c]
                  :where [[?a :g/to ?b]
                          [?a :g/to ?c]
                          [?b :g/to ?c]]})
 
+(defn- no-repetition [vars]
+  (loop [res [] vars vars]
+    (if (seq vars)
+      (recur (into res (map #(vector (list '!= (first vars) %)) (nthrest vars 2))) (rest vars))
+      res)))
+
+(no-repetition (range 4))
+
 (defn k-path-query [k]
   (let [vars (vec (repeatedly (inc k) #(symbol (str "?" (gensym)))))]
     (-> {:find vars}
         (assoc :where (mapv #(vector %1 :g/to %2) vars (rest vars)))
-        (update :where (comp vec concat) (mapv #(vector (list '!= %1 %2)) vars (rest vars))))))
+        (update :where (comp vec concat) (no-repetition vars)))))
 
 (comment
   (k-path-query 4)
+
   )
 
 (comment
   (time (xt/q (xt/db mem-node) (assoc triangleq :timeout 120000)))
-  (time (xt/q (xt/db mem-node) (assoc (k-path-query 3) :timeout 120000)))
+
+  (xt/sync mem-node)
+  (time (xt/q (xt/db mem-node) (assoc (k-path-query 4) :timeout 120000)))
 
   (count *1)
   )
@@ -88,7 +102,7 @@
 
   )
 
-(defn graph->docs [graph]
+(defn graph->docs2 [graph]
   (map (fn [[i j]] {:xt/id (str i "-" j) :g/from i :g/to j}) graph))
 
 
