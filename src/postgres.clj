@@ -1,22 +1,35 @@
 (ns postgres
   (:require [clojure.java.io :as io]
-            [clojure.data.csv :as csv]
             [next.jdbc :as jdbc]
             [next.jdbc.sql :as jsql]
             [honey.sql :as sql]
-            [honey.sql.helpers :as help]
             [graph]))
 
-(def ds (jdbc/get-datasource
-         {:dbtype "postgresql"
-          :host "localhost"
-          :port 5432
-          :password "postgres"
-          :user "postgres"}))
+;;///////////////////////////////////////////////////////////////////////////////
+;;===============================================================================
+;;                                Create database
+;;===============================================================================
+;;\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+(def ds
+  (jdbc/get-datasource
+   {:dbtype "postgresql"
+    :host "localhost"
+    :port 5432
+    :password "postgres"
+    :user "postgres"}))
 
 (def create-db "CREATE DATABASE wcoj")
 
-(jdbc/execute! ds [create-db])
+(comment
+  (jdbc/execute! ds [create-db]))
+
+
+;;///////////////////////////////////////////////////////////////////////////////
+;;===============================================================================
+;;                       Create tables and execute queries
+;;===============================================================================
+;;\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
 (def conn (jdbc/get-datasource
            {:dbtype "postgresql"
@@ -28,11 +41,13 @@
 
 (def delete-table-stmt "DROP TABLE g;")
 
-(jdbc/execute! conn [delete-table-stmt])
+(comment
+  (jdbc/execute! conn [delete-table-stmt]))
 
 (def create-table-stmt "CREATE TABLE g(f INT, t INT);")
 
-(jdbc/execute! conn [create-table-stmt])
+(comment
+  (jdbc/execute! conn [create-table-stmt]))
 
 (def graph-statement
   "
@@ -44,35 +59,44 @@ VALUES
 (4, 8), (5, 8), (6, 7), (7, 8);
 ")
 
-(jdbc/execute! conn [graph-statement])
+(def graph-exists-stmt
+  "
+SELECT EXISTS (
+       SELECT FROM
+       pg_tables
+       WHERE
+       schemaname = 'public' AND tablename  = 'g'
+       );
+")
 
-(defn insert-graph [conn graph]
-  (jsql/insert-multi! conn :g [:f :t] graph {:batch true}))
+(defn graph-exists? [conn]
+  (-> (jdbc/execute! conn [graph-exists-stmt]) first :exists))
+
+
+(comment
+  (jdbc/execute! conn [graph-statement])
+  (graph-exists? conn)
+  )
 
 (defn insert-graph! [conn graph]
-  (jdbc/execute! conn [delete-table-stmt])
+  (when (graph-exists? conn)
+    (jdbc/execute! conn [delete-table-stmt]))
   (jdbc/execute! conn [create-table-stmt])
   (jsql/insert-multi! conn :g [:f :t] graph {:batch true}))
 
+(def rand-g (graph/random-graph 1000 0.3))
+(def rand-inds (graph/random-independents 300 10 0.3))
+(def rand-inds2 (graph/random-independents 200 7 0.3))
+
 (comment
-  (insert-graph conn (graph/complete-graph 200))
-  (insert-graph conn (graph/complete-bipartite 200))
-  (insert-graph conn (graph/star-graph 200))
+  (insert-graph! conn (graph/complete-graph 200))
+  (insert-graph! conn (graph/complete-bipartite 200))
+  (insert-graph! conn (graph/star-graph 200))
   (insert-graph! conn (graph/star-graph 1000))
   (insert-graph! conn (graph/star-with-ring 1000))
-
-  (def rand-g (graph/random-graph 1000 0.3))
   (insert-graph! conn rand-g)
-
-
   (insert-graph! conn (graph/complete-independents 300 10))
-
-  (def rand-inds (graph/random-independents 300 10 0.3))
-  (def rand-inds2 (graph/random-independents 200 7 0.3))
-  (insert-graph! conn rand-inds2)
-
-  )
-
+  (insert-graph! conn rand-inds2))
 
 (def triangle-query
   '{:select [[g1.f a] [g1.t b] [g2.t c]]
@@ -88,8 +112,9 @@ FROM
 WHERE
     g1.t = g2.f AND g2.t = g3.t AND g1.f = g3.f;")
 
-(time (jdbc/execute! conn [query]))
-(time (jdbc/execute! conn (sql/format triangle-query)))
+(comment
+  (time (jdbc/execute! conn [query]))
+  (time (jdbc/execute! conn (sql/format triangle-query))))
 
 (defn- no-repetition [vars]
   (loop [res [] vars vars]
@@ -109,6 +134,6 @@ WHERE
                      (conj (vector (symbol (str "g" (dec k) ".t")) (last vars))))})))
 
 (comment
-  (k-path-query 4))
+  (k-path-query 4)
 
-(time (jdbc/execute! conn (sql/format (k-path-query 4))))
+  (time (jdbc/execute! conn (sql/format (k-path-query 4)))))
