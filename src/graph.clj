@@ -2,7 +2,7 @@
   (:require [clojure.math.combinatorics :as combo]))
 
 (defn complete-graph [n]
-  (for [i (range n) j (range i n)]
+  (for [i (range n) j (range (inc i) n)]
     [i j]))
 
 (defn complete-bipartite [n]
@@ -37,3 +37,7 @@
 
 (defn random-independents [n k p]
   (filter (fn [_] (<= (rand) p)) (complete-independents n k)))
+
+(comment
+  (complete-graph 5)
+  (complete-bipartite 5))
