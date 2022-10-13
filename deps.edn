@@ -2,8 +2,8 @@
 
  :deps
  {org.clojure/clojure                 {:mvn/version "1.11.1"}
-  com.xtdb/xtdb-core                  {:mvn/version "1.21.0"}
-  com.xtdb/xtdb-rocksdb               {:mvn/version "1.21.0"}
+  com.xtdb/xtdb-core                  {:mvn/version "1.22.0"}
+  com.xtdb/xtdb-rocksdb               {:mvn/version "1.22.0"}
   com.github.seancorfield/next.jdbc   {:mvn/version "1.2.796"}
   org.postgresql/postgresql           {:mvn/version "42.4.1"}
   com.github.seancorfield/honeysql    {:mvn/version "2.3.911"}
@@ -14,7 +14,8 @@
  {:dev
   {:extra-paths ["dev"]
    :extra-deps  {org.clojure/tools.namespace {:mvn/version "1.1.0"}
-                 com.lambdaisland/classpath  {:mvn/version "0.0.27"}}}
+                 com.lambdaisland/classpath  {:mvn/version "0.0.27"}
+                 vvvvalvalval/scope-capture  {:mvn/version "0.3.3"}}}
 
   :test
   {:extra-paths ["test"]
